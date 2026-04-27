@@ -107,6 +107,10 @@
         .shop-btn:disabled { opacity: 0.5; pointer-events: none; }
         .shop-msg { font-size: 0.85rem; color: #ffe484; min-height: 20px; }
         .gold-display { background: rgba(255,215,0,0.1); border-radius: 20px; padding: 6px 18px; text-align: center; margin-bottom: 8px; font-weight: bold; font-size: 1.2rem; color: #ffd966; }
+        .loading-card { width: min(500px, 100%); border-radius: 24px; border: 1px solid rgba(166,214,255,0.2); background: linear-gradient(180deg, rgba(17,29,56,0.88), rgba(8,14,28,0.93)); backdrop-filter: blur(12px); box-shadow: 0 20px 55px rgba(0,0,0,0.4), inset 0 0 60px rgba(120,170,255,0.05); display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 48px 32px; position: relative; overflow: hidden; }
+        .loading-card h1 { font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: 0.09em; text-transform: uppercase; color: #f4f8ff; text-shadow: 0 0 14px rgba(103,158,255,0.5), 0 0 32px rgba(103,158,255,0.2); }
+        .loading-spinner { width: 50px; height: 50px; border: 3px solid rgba(103,158,255,0.3); border-top: 3px solid #5ea0ff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes floatShip { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes flame { from { transform: scaleY(0.88); opacity: 0.8; } to { transform: scaleY(1.12); opacity: 1; } }
         @keyframes titlePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.018); } }
@@ -142,7 +146,16 @@
     <div id="pauseBtnWrap" class="pause-btn-wrap hidden">
         <button class="pause-btn" id="pauseBtn">⏸ Pause</button>
     </div>
-    <div id="titleScreen" class="overlay">
+    <div id="loadingScreen" class="overlay">
+        <div class="title-wrap">
+            <div class="loading-card">
+                <h1>SPACE SHOOTERS</h1>
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 20px; font-size: 1.1rem; color: #aaccff;">Initializing Systems...</p>
+            </div>
+        </div>
+    </div>
+    <div id="titleScreen" class="overlay hidden">
         <div class="title-wrap">
             <div class="title-card">
                 <div class="title-ship" aria-hidden="true">
@@ -595,6 +608,190 @@
 
         function reloop() {
             if (!musicPlaying || !audioCtx) return;
+            if (audioCtx.currentTime >= nextT - 0.5) {
+                scheduleLoop(nextT);
+                nextT += loop;
+            }
+            setTimeout(reloop, 150);
+        }
+        setTimeout(reloop, 150);
+    }
+
+    // ─── LOADING SOUND ──────────────────────────────────────────────
+    function playLoadingSound() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        // Quick ascending beep sequence
+        const beeps = [523.25, 659.25, 783.99]; // C5, E5, G5
+        beeps.forEach((freq, i) => {
+            playRaw(freq, 'sine', 0.15, 0.4, null, i * 0.18);
+        });
+    }
+
+    let currentMusicType = null;
+
+    function stopAllMusic() {
+        musicPlaying = false;
+    }
+
+    // ─── SMOOTH GAMEPLAY MUSIC — Relaxed, atmospheric ────────────────
+    function startGameplayMusic() {
+        if (!audioCtx || musicPlaying) return;
+        if (currentMusicType === 'gameplay') return;
+        stopAllMusic();
+        musicPlaying = true;
+        currentMusicType = 'gameplay';
+
+        const sr = audioCtx.sampleRate;
+
+        // Master chain
+        const master = audioCtx.createGain(); master.gain.value = 0.25;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.value = -15; comp.knee.value = 8;
+        comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.15;
+        comp.connect(master); master.connect(audioCtx.destination);
+
+        // Reverb
+        const rev = audioCtx.createConvolver();
+        const revGain = audioCtx.createGain(); revGain.gain.value = 0.22;
+        const ibuf = audioCtx.createBuffer(2, sr * 2.2, sr);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = ibuf.getChannelData(ch);
+            for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/d.length, 3);
+        }
+        rev.buffer = ibuf; rev.connect(revGain); revGain.connect(master);
+
+        const BPM = 100;  // slower tempo
+        const beat = 60 / BPM;
+        const bar = beat * 4;
+        const loop = bar * 8;
+
+        function osc(freq, type, t0, dur, vol, freqEnd, filt) {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = type; o.frequency.value = freq;
+            if (freqEnd != null) o.frequency.exponentialRampToValueAtTime(Math.max(freqEnd,0.001), t0+dur);
+            g.gain.setValueAtTime(0, t0);
+            g.gain.linearRampToValueAtTime(vol, t0 + 0.008);
+            g.gain.setValueAtTime(vol, t0 + dur * 0.6);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            if (filt) { o.connect(filt); filt.connect(g); } else { o.connect(g); }
+            g.connect(comp);
+            o.start(t0); o.stop(t0 + dur + 0.01);
+        }
+
+        function noise(t0, dur, vol, filtFreq, filtType='bandpass', Q=1) {
+            const len = Math.max(1, Math.ceil(sr * dur));
+            const buf = audioCtx.createBuffer(1, len, sr);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) d[i] = Math.random()*2-1;
+            const src = audioCtx.createBufferSource(); src.buffer = buf;
+            const f = audioCtx.createBiquadFilter(); f.type = filtType; f.frequency.value = filtFreq; f.Q.value = Q;
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+            src.connect(f); f.connect(g); g.connect(comp);
+            src.start(t0); src.stop(t0+dur+0.01);
+        }
+
+        // Simple drums - much sparser
+        function drums(t0) {
+            const step = beat * 0.25;
+            const pat = [
+              'K','.','.','.','.','.','.','.',
+              '.','.','.','.','.','.','.','.',
+              'K','.','.','.','.','.','.','.',
+              '.','.','.','.','.','.','.','.',
+            ];
+            for (let b=0; b<4; b++) {
+                for (let s=0; s<16; s++) {
+                    const t = t0 + b*bar + s*step;
+                    const v = pat[s];
+                    if (v==='K') {
+                        osc(140, 'sine', t, 0.4, 0.7, 45);
+                        noise(t, 0.01, 0.3, 5000, 'highpass', 0.5);
+                    }
+                }
+            }
+        }
+
+        // Smooth pad bass
+        function bass(t0) {
+            const step = beat;
+            const Am=55, C=65.41, Dm=73.42, Em=82.41, F=87.31, G=98;
+            const notes = [C,C,F,F, G,G,Em,Em, Dm,Dm,Am,Am, C,C,G,G];
+            const dur = beat*0.95;
+            for (let i=0; i<notes.length; i++) {
+                const t = t0 + i*step;
+                const f = audioCtx.createBiquadFilter();
+                f.type='lowpass'; f.frequency.value=500; f.Q.value=1.2;
+                osc(notes[i], 'sine', t, dur, 0.35, null, f);
+            }
+        }
+
+        // Gentle melody
+        function melody(t0) {
+            const C4=261.63,D4=293.66,E4=329.63,F4=349.23,G4=392,A4=440,C5=523.25,D5=587.33,E5=659.25;
+            const b=bar;
+            const notes = [
+                {f:E4, t:0,      d:beat*0.9},
+                {f:G4, t:beat,   d:beat*0.9},
+                {f:A4, t:beat*2, d:beat*1.8},
+                {f:C5, t:beat*4, d:beat*0.9},
+                {f:D5, t:beat*5, d:beat*0.9},
+                {f:E5, t:beat*6, d:beat*1.8},
+                {f:C5, t:b,      d:beat*0.9},
+                {f:A4, t:b+beat, d:beat*0.9},
+                {f:G4, t:b+beat*2, d:beat*1.8},
+                {f:E4, t:b+beat*4, d:beat*0.9},
+                {f:F4, t:b+beat*5, d:beat*0.9},
+                {f:G4, t:b+beat*6, d:beat*1.8},
+            ];
+            notes.forEach(n => {
+                const t = t0 + n.t;
+                osc(n.f, 'sine', t, n.d, 0.15);
+                const og = audioCtx.createGain();
+                og.gain.setValueAtTime(0.05, t); og.gain.exponentialRampToValueAtTime(0.0001, t+n.d);
+                const o = audioCtx.createOscillator(); o.type='sine'; o.frequency.value=n.f;
+                o.connect(og); og.connect(rev); o.start(t); o.stop(t+n.d+0.01);
+            });
+        }
+
+        // Atmospheric pad
+        function pads(t0) {
+            const chords=[
+                [130.81,164.81,246.94,329.63],  // Am
+                [174.61,220,329.63,440],         // Dm
+                [196,246.94,392,493.88],         // G
+                [164.81,196,293.66,392],         // Em
+            ];
+            for (let bar_i=0; bar_i<8; bar_i++) {
+                const chord = chords[bar_i%4];
+                const t = t0 + bar_i*bar;
+                chord.forEach(freq => {
+                    const f=audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=650;
+                    const g=audioCtx.createGain();
+                    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.04,t+0.2);
+                    g.gain.setValueAtTime(0.04,t+bar-0.15); g.gain.linearRampToValueAtTime(0,t+bar);
+                    const o=audioCtx.createOscillator(); o.type='sine'; o.frequency.value=freq;
+                    o.connect(f); f.connect(g); g.connect(rev);
+                    o.start(t); o.stop(t+bar+0.01);
+                });
+            }
+        }
+
+        function scheduleLoop(t0) {
+            drums(t0);
+            bass(t0);
+            melody(t0);
+            pads(t0);
+        }
+
+        let nextT = audioCtx.currentTime + 0.05;
+        scheduleLoop(nextT);
+        nextT += loop;
+
+        function reloop() {
+            if (!musicPlaying || currentMusicType !== 'gameplay' || !audioCtx) return;
             if (audioCtx.currentTime >= nextT - 0.5) {
                 scheduleLoop(nextT);
                 nextT += loop;
