@@ -107,10 +107,6 @@
         .shop-btn:disabled { opacity: 0.5; pointer-events: none; }
         .shop-msg { font-size: 0.85rem; color: #ffe484; min-height: 20px; }
         .gold-display { background: rgba(255,215,0,0.1); border-radius: 20px; padding: 6px 18px; text-align: center; margin-bottom: 8px; font-weight: bold; font-size: 1.2rem; color: #ffd966; }
-        .loading-card { width: min(500px, 100%); border-radius: 24px; border: 1px solid rgba(166,214,255,0.2); background: linear-gradient(180deg, rgba(17,29,56,0.88), rgba(8,14,28,0.93)); backdrop-filter: blur(12px); box-shadow: 0 20px 55px rgba(0,0,0,0.4), inset 0 0 60px rgba(120,170,255,0.05); display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 48px 32px; position: relative; overflow: hidden; }
-        .loading-card h1 { font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: 0.09em; text-transform: uppercase; color: #f4f8ff; text-shadow: 0 0 14px rgba(103,158,255,0.5), 0 0 32px rgba(103,158,255,0.2); }
-        .loading-spinner { width: 50px; height: 50px; border: 3px solid rgba(103,158,255,0.3); border-top: 3px solid #5ea0ff; border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes floatShip { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes flame { from { transform: scaleY(0.88); opacity: 0.8; } to { transform: scaleY(1.12); opacity: 1; } }
         @keyframes titlePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.018); } }
@@ -145,15 +141,6 @@
     </div>
     <div id="pauseBtnWrap" class="pause-btn-wrap hidden">
         <button class="pause-btn" id="pauseBtn">⏸ Pause</button>
-    </div>
-    <div id="loadingScreen" class="overlay">
-        <div class="title-wrap">
-            <div class="loading-card">
-                <h1>SPACE SHOOTERS</h1>
-                <div class="loading-spinner"></div>
-                <p style="margin-top: 20px; font-size: 1.1rem; color: #aaccff;">Initializing Systems...</p>
-            </div>
-        </div>
     </div>
     <div id="titleScreen" class="overlay hidden">
         <div class="title-wrap">
@@ -302,11 +289,47 @@
     let audioCtx;
     let musicNodes = [];
     let musicPlaying = false;
+    let audioUnlocked = false;
 
     function initAudio() {
         if (audioCtx) return;
         audioCtx = new AudioCtx();
-        startRetroMusic();
+
+        const tryStartMusic = () => {
+            if (musicPlaying) return;
+            if (audioCtx.state === "suspended") {
+                audioCtx.resume().then(() => {
+                    audioUnlocked = true;
+                    startRetroMusic();
+                }).catch(() => {
+                    // Will retry on first user gesture.
+                });
+            } else {
+                audioUnlocked = true;
+                startRetroMusic();
+            }
+        };
+
+        tryStartMusic();
+
+        if (!audioUnlocked) {
+            const unlockAudio = () => {
+                if (!audioCtx) return;
+                if (audioCtx.state === "suspended") {
+                    audioCtx.resume().then(() => {
+                        audioUnlocked = true;
+                        startRetroMusic();
+                    }).catch(() => {});
+                } else {
+                    audioUnlocked = true;
+                    startRetroMusic();
+                }
+                window.removeEventListener("pointerdown", unlockAudio);
+                window.removeEventListener("keydown", unlockAudio);
+            };
+            window.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
+            window.addEventListener("keydown", unlockAudio, { once: true, passive: true });
+        }
     }
 
     // ─── RETRO SPACE MUSIC — Beat-driven arcade banger ──────────────────
@@ -946,11 +969,11 @@
 
     // ─── DIFFICULTY MODES ──────────────────────────────────────────
     const MODES = {
-        baby:      { name:"Baby",      pts:1, dmgMult:0.5, spawnBase:100, spawnMin:65, speedMult:0.72, fireCd:170, scoutOnly:30 },
-        easy:      { name:"Easy",      pts:1, dmgMult:1.0, spawnBase:80,  spawnMin:48, speedMult:0.92, fireCd:160, scoutOnly:25 },
-        medium:    { name:"Medium",    pts:2, dmgMult:1.5, spawnBase:62,  spawnMin:34, speedMult:1.09, fireCd:148, scoutOnly:15 },
-        hard:      { name:"Hard",      pts:3, dmgMult:2.0, spawnBase:48,  spawnMin:26, speedMult:1.27, fireCd:136, scoutOnly:10 },
-        nightmare: { name:"NIGHTMARE", pts:7, dmgMult:2.5, spawnBase:36,  spawnMin:18, speedMult:1.55, fireCd:110, scoutOnly:5  }
+        baby:      { name:"Baby",      pts:1, dmgMult:0.5, spawnBase:100, spawnMin:65, speedMult:0.72, fireCd:340, scoutOnly:30 },
+        easy:      { name:"Easy",      pts:1, dmgMult:1.0, spawnBase:80,  spawnMin:48, speedMult:0.92, fireCd:320, scoutOnly:25 },
+        medium:    { name:"Medium",    pts:2, dmgMult:1.5, spawnBase:62,  spawnMin:34, speedMult:1.09, fireCd:296, scoutOnly:15 },
+        hard:      { name:"Hard",      pts:3, dmgMult:2.0, spawnBase:48,  spawnMin:26, speedMult:1.27, fireCd:272, scoutOnly:10 },
+        nightmare: { name:"NIGHTMARE", pts:7, dmgMult:2.5, spawnBase:36,  spawnMin:18, speedMult:1.55, fireCd:220, scoutOnly:5  }
     };
     const EASY_DAMAGE = { scout:2, fighter:4, cruiser:8 };
     const CRUISER_SPEED  = { baby:0.50, easy:0.68, medium:0.85, hard:1.05, nightmare:1.35 };
@@ -1248,7 +1271,7 @@
             const name = mode === "nightmare" ? "NIGHTMARE" : mode.charAt(0).toUpperCase()+mode.slice(1);
             btn.innerHTML = `<span class="skulls">${skulls}</span><span class="diff-name">${name}</span>`;
             btn.dataset.mode = mode;
-            btn.addEventListener("click", () => { initAudio(); startGame(mode); });
+            btn.addEventListener("click", () => { startGame(mode); });
             grid.appendChild(btn);
         });
     }
@@ -1851,7 +1874,7 @@
     function loop() { update(); draw(); requestAnimationFrame(loop); }
 
     // ─── UI EVENTS ────────────────────────────────────────────────────
-    document.getElementById("startBtn").addEventListener("click", () => { initAudio(); showOnly(difficultyScreen); gameState="difficulty"; rebuildDifficultyButtons(); });
+    document.getElementById("startBtn").addEventListener("click", () => { showOnly(difficultyScreen); gameState="difficulty"; rebuildDifficultyButtons(); });
     document.getElementById("howToPlayBtn").addEventListener("click", () => { showOnly(howToScreen); gameState="howto"; });
     document.getElementById("shopBtn").addEventListener("click", () => { syncUI(); showOnly(shopScreen); gameState="shop"; });
     document.getElementById("diffBackBtn").addEventListener("click", () => { showOnly(titleScreen); gameState="title"; });
