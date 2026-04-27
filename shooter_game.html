@@ -111,7 +111,16 @@
         @keyframes flame { from { transform: scaleY(0.88); opacity: 0.8; } to { transform: scaleY(1.12); opacity: 1; } }
         @keyframes titlePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.018); } }
         @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
-        @media(max-width:680px) { .difficulty-grid { grid-template-columns: repeat(2, 1fr); } .hud { flex-direction: column; } .health-panel { min-width: 100%; } }
+        .mobile-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 140px; display: flex; z-index: 4; pointer-events: auto; }
+        .mobile-controls.hidden { display: none; }
+        .mobile-control-area { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .left-area { background: linear-gradient(90deg, rgba(255,0,0,0.15), transparent); }
+        .center-area { background: linear-gradient(180deg, rgba(0,255,0,0.1), transparent); }
+        .right-area { background: linear-gradient(270deg, rgba(255,0,0,0.15), transparent); }
+        .mobile-btn { width: 70px; height: 70px; border-radius: 50%; background: rgba(79,128,255,0.25); border: 2px solid rgba(79,128,255,0.5); color: #fff; font-size: 1.8rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; transition: all 0.1s; box-shadow: 0 0 15px rgba(79,128,255,0.3); }
+        .mobile-btn:active { background: rgba(79,128,255,0.45); box-shadow: 0 0 25px rgba(79,128,255,0.6); transform: scale(0.95); }
+        @media(max-width:680px) { .difficulty-grid { grid-template-columns: repeat(2, 1fr); } .hud { flex-direction: column; } .health-panel { min-width: 100%; } .pause-btn { padding: 10px 14px; font-size: 0.9rem; } }
+        @media(max-width:768px) and (hover: none) { .mobile-controls { display: flex !important; } .main-btn { padding: 16px 28px; font-size: 1.1rem; } .pause-btn { padding: 12px 20px; font-size: 1rem; } }
     </style>
 </head>
 <body>
@@ -259,6 +268,11 @@
         </div>
     </div>
     <canvas id="game"></canvas>
+    <div id="mobileControls" class="mobile-controls hidden">
+        <div class="mobile-control-area left-area" id="leftControl"></div>
+        <div class="mobile-control-area center-area" id="centerControl"></div>
+        <div class="mobile-control-area right-area" id="rightControl"></div>
+    </div>
 </div>
 
 <script>
@@ -1696,7 +1710,70 @@
     });
     document.addEventListener("keyup", e => { keys[e.code] = false; });
 
-    showOnly(titleScreen); showGameUI(false); makeStars(); rebuildDifficultyButtons();
+    // ─── MOBILE TOUCH CONTROLS ──────────────────────────────────────
+    const mobileControls = document.getElementById("mobileControls");
+    const leftControl = document.getElementById("leftControl");
+    const centerControl = document.getElementById("centerControl");
+    const rightControl = document.getElementById("rightControl");
+    let isMobile = () => window.matchMedia("(max-width: 768px) and (hover: none)").matches;
+
+    function setupMobileControls() {
+        if (!isMobile()) return;
+        
+        // Create buttons
+        const leftBtn = document.createElement("button");
+        leftBtn.className = "mobile-btn";
+        leftBtn.innerHTML = "◀ Left";
+        leftBtn.addEventListener("mousedown", () => { keys["ArrowLeft"] = true; });
+        leftBtn.addEventListener("mouseup", () => { keys["ArrowLeft"] = false; });
+        leftBtn.addEventListener("touchstart", (e) => { e.preventDefault(); keys["ArrowLeft"] = true; });
+        leftBtn.addEventListener("touchend", (e) => { e.preventDefault(); keys["ArrowLeft"] = false; });
+        leftBtn.addEventListener("mouseleave", () => { keys["ArrowLeft"] = false; });
+        
+        const shootBtn = document.createElement("button");
+        shootBtn.className = "mobile-btn";
+        shootBtn.innerHTML = "🎯 SHOOT";
+        shootBtn.addEventListener("mousedown", () => { keys["Space"] = true; });
+        shootBtn.addEventListener("mouseup", () => { keys["Space"] = false; });
+        shootBtn.addEventListener("touchstart", (e) => { e.preventDefault(); keys["Space"] = true; });
+        shootBtn.addEventListener("touchend", (e) => { e.preventDefault(); keys["Space"] = false; });
+        shootBtn.addEventListener("mouseleave", () => { keys["Space"] = false; });
+        
+        const rightBtn = document.createElement("button");
+        rightBtn.className = "mobile-btn";
+        rightBtn.innerHTML = "Right ▶";
+        rightBtn.addEventListener("mousedown", () => { keys["ArrowRight"] = true; });
+        rightBtn.addEventListener("mouseup", () => { keys["ArrowRight"] = false; });
+        rightBtn.addEventListener("touchstart", (e) => { e.preventDefault(); keys["ArrowRight"] = true; });
+        rightBtn.addEventListener("touchend", (e) => { e.preventDefault(); keys["ArrowRight"] = false; });
+        rightBtn.addEventListener("mouseleave", () => { keys["ArrowRight"] = false; });
+        
+        leftControl.appendChild(leftBtn);
+        centerControl.appendChild(shootBtn);
+        rightControl.appendChild(rightBtn);
+    }
+
+    function showMobileControls(show) {
+        if (!isMobile()) return;
+        mobileControls.classList.toggle("hidden", !show);
+    }
+
+    // Update mobile controls visibility
+    const originalShowGameUI = window.showGameUI || (() => {});
+    function updateShowGameUI(show) {
+        showMobileControls(show);
+    }
+    
+    // Patch showGameUI
+    const oldShowGameUI = showGameUI;
+    showGameUI = function(show) {
+        oldShowGameUI(show);
+        showMobileControls(show);
+    };
+
+    setupMobileControls();
+
+    initAudio(); showOnly(titleScreen); showGameUI(false); makeStars(); rebuildDifficultyButtons();
     loop();
 })();
 </script>
