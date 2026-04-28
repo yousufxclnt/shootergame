@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Yousuf's Space Shooters - Nightmare & Health Upgrade</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -90,6 +93,7 @@
         .pause-action-btn { border: none; border-radius: 14px; padding: 14px 20px; font-size: 1rem; font-weight: bold; color: white; cursor: pointer; transition: transform 0.15s, filter 0.15s; }
         .pause-action-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
         .pause-action-btn.resume { background: linear-gradient(135deg, #2ee07a, #1a8f4a); }
+        .pause-action-btn.finish { background: linear-gradient(135deg, #f0b44b, #cc8a2b); }
         .pause-action-btn.restart { background: linear-gradient(135deg, #4f80ff, #8d60ff); }
         .pause-action-btn.menu { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); }
         .gameover-card { background: rgba(8,14,32,0.96); border: 1px solid rgba(170,214,255,0.18); border-radius: 24px; padding: 38px 44px; display: flex; flex-direction: column; align-items: center; gap: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); min-width: 320px; }
@@ -215,21 +219,21 @@
                     <div class="shop-item">
                         <h3>Damage Upgrade</h3>
                         <p>Current: <span id="damageMultDisplay">x1.00</span> (Upgrades: <span id="damageUpCount">0</span>/20)</p>
-                        <p>Cost: 10 Gold | +15‑25% damage</p>
+                        <p>Cost: 10 Gold | +18‑35% damage</p>
                         <button id="upgradeDamageBtn" class="shop-btn">Upgrade Damage</button>
                         <span id="damageMsg" class="shop-msg"></span>
                     </div>
                     <div class="shop-item">
                         <h3>Fire Rate Upgrade</h3>
                         <p>Current: <span id="fireRateMultDisplay">x1.00</span> (Upgrades: <span id="fireRateUpCount">0</span>/20)</p>
-                        <p>Cost: 20 Gold | +10‑20% fire rate</p>
+                        <p>Cost: 20 Gold | +15‑35% fire rate</p>
                         <button id="upgradeFireRateBtn" class="shop-btn">Upgrade Fire Rate</button>
                         <span id="fireRateMsg" class="shop-msg"></span>
                     </div>
                     <div class="shop-item">
                         <h3>🛡️ Health Boost</h3>
-                        <p>Max Health: <span id="maxHealthDisplay">100</span> (Bonus: +<span id="healthBonusCount">0</span>)</p>
-                        <p>Cost: 15 Gold | +100 maximum health</p>
+                        <p>Max Health: <span id="maxHealthDisplay">500</span> (Bonus: +<span id="healthBonusCount">0</span>)</p>
+                        <p>Cost: 15 Gold | +100-125 maximum health</p>
                         <button id="upgradeHealthBtn" class="shop-btn">Increase Max Health</button>
                         <span id="healthMsg" class="shop-msg"></span>
                     </div>
@@ -250,6 +254,7 @@
             <h2>⏸ Paused</h2>
             <div class="pause-actions">
                 <button class="pause-action-btn resume" id="resumeBtn">▶ Resume</button>
+                <button class="pause-action-btn finish" id="finishGameBtn">✓ Finish Game</button>
                 <button class="pause-action-btn restart" id="pauseRestartBtn">↺ Restart</button>
                 <button class="pause-action-btn menu" id="pauseMenuBtn">⌂ Return to Menu</button>
             </div>
@@ -276,6 +281,7 @@
 </div>
 
 <script>
+// Version: 2026-04-28-HP-System
 (function() {
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -969,13 +975,13 @@
 
     // ─── DIFFICULTY MODES ──────────────────────────────────────────
     const MODES = {
-        baby:      { name:"Baby",      pts:1, dmgMult:0.5, spawnBase:100, spawnMin:65, speedMult:0.72, fireCd:340, scoutOnly:30 },
-        easy:      { name:"Easy",      pts:1, dmgMult:1.0, spawnBase:80,  spawnMin:48, speedMult:0.92, fireCd:320, scoutOnly:25 },
-        medium:    { name:"Medium",    pts:2, dmgMult:1.5, spawnBase:62,  spawnMin:34, speedMult:1.09, fireCd:296, scoutOnly:15 },
-        hard:      { name:"Hard",      pts:3, dmgMult:2.0, spawnBase:48,  spawnMin:26, speedMult:1.27, fireCd:272, scoutOnly:10 },
-        nightmare: { name:"NIGHTMARE", pts:7, dmgMult:2.5, spawnBase:36,  spawnMin:18, speedMult:1.55, fireCd:220, scoutOnly:5  }
+        baby:      { name:"Baby",      pts:1, dmgMult:0.5, spawnBase:100, spawnMin:65, speedMult:0.72, fireCd:459, scoutOnly:30 },
+        easy:      { name:"Easy",      pts:1, dmgMult:1.0, spawnBase:80,  spawnMin:48, speedMult:0.92, fireCd:432, scoutOnly:25 },
+        medium:    { name:"Medium",    pts:2, dmgMult:1.5, spawnBase:62,  spawnMin:34, speedMult:1.09, fireCd:400, scoutOnly:15 },
+        hard:      { name:"Hard",      pts:3, dmgMult:2.0, spawnBase:48,  spawnMin:26, speedMult:1.27, fireCd:367, scoutOnly:10 },
+        nightmare: { name:"NIGHTMARE", pts:7, dmgMult:2.5, spawnBase:36,  spawnMin:18, speedMult:1.55, fireCd:297, scoutOnly:5  }
     };
-    const EASY_DAMAGE = { scout:2, fighter:4, cruiser:8 };
+    const EASY_DAMAGE = { scout:20, fighter:50, cruiser:100 };
     const CRUISER_SPEED  = { baby:0.50, easy:0.68, medium:0.85, hard:1.05, nightmare:1.35 };
     const FIGHTER_SPEED  = { baby:1.25, easy:1.55, medium:1.85, hard:2.15, nightmare:2.65 };
 
@@ -1003,8 +1009,8 @@
     // ─── STATE ──────────────────────────────────────────────────────
     let gameState = "title", currentModeKey = null, currentMode = null;
     let highScore = Number(localStorage.getItem("spaceShootersHS") || 0);
-    let baseMaxHealth = 100;
-    let currentMaxHealth = baseMaxHealth + healthBonus * 100;
+    let baseMaxHealth = 500;
+    let currentMaxHealth = baseMaxHealth + healthBonus * 125;
     let currentHealth = currentMaxHealth;
     let keys = {}, bullets = [], enemies = [], stars = [], particles = [], baseDebris = [], powerUps = [];
     let explosionEffects = []; // NEW: visual explosion effects
@@ -1417,9 +1423,9 @@
     function getEnemyTemplate(modeKey, elapsed) {
         const probs = getEnemyProbabilities(elapsed, modeKey);
         const roll = Math.random();
-        if (roll < probs.scout) return { type:"scout", hp:1, maxHp:1, width:46, height:36, speed:2.3, drift:0.55, colorA:"#ff6d78", colorB:"#ffb06a" };
-        if (roll < probs.scout+probs.fighter) return { type:"fighter", hp:5, maxHp:5, width:58, height:42, speed:FIGHTER_SPEED[modeKey]||1.85, drift:0.65, colorA:"#5ca4ff", colorB:"#79f0ff" };
-        return { type:"cruiser", hp:20, maxHp:20, width:84, height:56, speed:CRUISER_SPEED[modeKey]||0.85, drift:0.28, colorA:"#b96cff", colorB:"#ff8bff" };
+        if (roll < probs.scout) return { type:"scout", hp:100, maxHp:100, width:46, height:36, speed:2.3, drift:0.55, colorA:"#ff6d78", colorB:"#ffb06a" };
+        if (roll < probs.scout+probs.fighter) return { type:"fighter", hp:400, maxHp:400, width:58, height:42, speed:FIGHTER_SPEED[modeKey]||1.85, drift:0.65, colorA:"#5ca4ff", colorB:"#79f0ff" };
+        return { type:"cruiser", hp:1500, maxHp:1500, width:84, height:56, speed:CRUISER_SPEED[modeKey]||0.85, drift:0.28, colorA:"#b96cff", colorB:"#ff8bff" };
     }
 
     function spawnEnemy() {
@@ -1439,8 +1445,7 @@
     }
 
     function damagePlayer(enemy) {
-        let dmgPercent = EASY_DAMAGE[enemy.type] * currentMode.dmgMult;
-        let dmgAmount = (currentMaxHealth * dmgPercent) / 100;
+        let dmgAmount = EASY_DAMAGE[enemy.type] * currentMode.dmgMult;
         currentHealth -= dmgAmount;
         if (currentHealth < 0) currentHealth = 0;
         updateHealthUI();
@@ -1562,7 +1567,7 @@
                 const b = bullets[j];
                 if (rectsCollide(e, b)) {
                     bullets.splice(j, 1);
-                    e.hp -= damageMultiplier;
+                    e.hp -= (100 * damageMultiplier);
                     e.flash = 1;
                     createHitSpark(b.x+b.width/2, b.y, e.colorB);
                     sfxHit();
@@ -1882,6 +1887,7 @@
     document.getElementById("shopBackBtn").addEventListener("click", () => { showOnly(titleScreen); gameState="title"; syncUI(); });
     document.getElementById("pauseBtn").addEventListener("click", openPause);
     document.getElementById("resumeBtn").addEventListener("click", closePause);
+    document.getElementById("finishGameBtn").addEventListener("click", () => { gameState = "gameover"; maybeSaveHighScore(); const earned = score; points += earned; savePersistent(); sfxGameOver(); finalScoreEl.textContent = score; finalHighEl.textContent = highScore; finalPointsEl.textContent = earned; showOnly(gameoverScreen); });
     document.getElementById("pauseRestartBtn").addEventListener("click", () => startGame(currentModeKey));
     document.getElementById("pauseMenuBtn").addEventListener("click", () => { showOnly(null); goToTitle(); });
     document.getElementById("goRestartBtn").addEventListener("click", () => startGame(currentModeKey));
@@ -1889,7 +1895,7 @@
 
     document.getElementById("upgradeDamageBtn").addEventListener("click", () => {
         if (gold<10||damageUpgrades>=20) return;
-        gold -= 10; const inc = 1+(Math.random()*0.10+0.15); damageMultiplier *= inc; damageUpgrades++;
+        gold -= 10; const inc = 1+(Math.random()*0.17+0.18); damageMultiplier *= inc; damageUpgrades++;
         savePersistent(); syncUI();
         damageMsg.textContent = `+${((inc-1)*100).toFixed(1)}% damage`;
         setTimeout(() => { damageMsg.textContent=''; }, 2000);
@@ -1897,7 +1903,7 @@
 
     document.getElementById("upgradeFireRateBtn").addEventListener("click", () => {
         if (gold<20||fireRateUpgrades>=20) return;
-        gold -= 20; const inc = 1+(Math.random()*0.10+0.10); fireRateMultiplier *= inc; fireRateUpgrades++;
+        gold -= 20; const inc = 1+(Math.random()*0.20+0.15); fireRateMultiplier *= inc; fireRateUpgrades++;
         savePersistent(); syncUI();
         fireRateMsg.textContent = `+${((inc-1)*100).toFixed(1)}% fire rate`;
         setTimeout(() => { fireRateMsg.textContent=''; }, 2000);
@@ -1905,10 +1911,10 @@
 
     document.getElementById("upgradeHealthBtn").addEventListener("click", () => {
         if (gold<15) return;
-        gold -= 15; healthBonus++; currentMaxHealth = baseMaxHealth+(healthBonus*100);
-        currentHealth += 100; if (currentHealth>currentMaxHealth) currentHealth=currentMaxHealth;
+        gold -= 15; healthBonus++; const healthIncrease = 100 + Math.floor(Math.random()*26); currentMaxHealth = baseMaxHealth+(healthBonus*125);
+        currentHealth += healthIncrease; if (currentHealth>currentMaxHealth) currentHealth=currentMaxHealth;
         savePersistent(); syncUI(); updateHealthUI();
-        document.getElementById("healthMsg").textContent = "Max health increased by 100!";
+        document.getElementById("healthMsg").textContent = `Max health increased by ${healthIncrease}!`;
         setTimeout(() => { document.getElementById("healthMsg").textContent=''; }, 2000);
     });
 
